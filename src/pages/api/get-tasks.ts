@@ -4,6 +4,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 export type Task = {
   id: number;
   title: string;
+  created_at: string;
+  state: 0 | 1 | 2;
 };
 
 export default async function handler(

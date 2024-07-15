@@ -20,7 +20,6 @@ function Tasks() {
   if (!data || isError) {
     return <div>Error obteniendo las tareas</div>;
   }
-  console.log(data);
 
   return (
     <div className="min-h-40 max-w-2xl  rounded-lg bg-white">
@@ -35,7 +34,14 @@ function Tasks() {
 }
 
 function Task({ task }: { task: Task }) {
+  let time = task.created_at.slice(0, 5);
+  let state = task.state === 0 ? "Todo" : task.state === 1 ? "Doing" : "Done";
+
   return (
-    <li className="pl-4 font-semibold hover:bg-slate-300">{task.title}</li>
+    <li className="px-4 font-semibold hover:bg-slate-300 flex justify-between py-1">
+      <div>{task.title}</div>
+      <div>{time}</div>
+      <div>{state}</div>
+    </li>
   );
 }
