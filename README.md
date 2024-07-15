@@ -46,11 +46,11 @@ Hacer los componentes y el layout basico de la aplicacion leyendo las tareas de 
 
 Necesario:
 
-- [ ] Editar la base de datos para almacenar el estado y fecha de las tareas
-- [ ] Crear el endpoint para obtener las tareas
-- [ ] Crear el componente de tareas
-- [ ] Crear el componente de tareas individuales
-- [ ] Crear el componente de layout
+- [x] Editar la base de datos para almacenar el estado y fecha de las tareas
+- [x] Crear el endpoint para obtener las tareas
+- [x] Crear el componente de tareas
+- [x] Crear el componente de tareas individuales
+- [x] Crear el componente de layout
 
 ![](/images/1.png)
 
