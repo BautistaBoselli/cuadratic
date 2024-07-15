@@ -10,7 +10,11 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { rows } = await db.query<Task>("SELECT * FROM tasks");
-
-  res.status(200).json(rows);
+  try {
+    const response = await db.query<Task>("SELECT * FROM tasks");
+    res.status(200).json(response.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error obteniendo las tareas" });
+  }
 }

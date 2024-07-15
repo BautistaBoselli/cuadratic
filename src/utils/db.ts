@@ -4,7 +4,8 @@ export const db = new Client({
   user: "example",
   password: "example",
   host: "localhost",
-  database: "example",
+  database: "postgres",
+  port: 5433,
 });
 
 db.connect();
