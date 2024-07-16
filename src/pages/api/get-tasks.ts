@@ -1,12 +1,6 @@
 import { db } from "@/utils/db";
 import type { NextApiRequest, NextApiResponse } from "next";
-
-export type Task = {
-  id: number;
-  title: string;
-  created_at: string;
-  state: 0 | 1 | 2;
-};
+import { Task } from "../../types";
 
 export default async function handler(
   req: NextApiRequest,

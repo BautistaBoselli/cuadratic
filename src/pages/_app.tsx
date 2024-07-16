@@ -6,7 +6,7 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
-const queryClient = new QueryClient();
+export const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
