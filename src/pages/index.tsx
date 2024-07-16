@@ -55,15 +55,14 @@ function Task({ task }: { task: Task }) {
   let state = task.state === 0 ? "Todo" : task.state === 1 ? "Doing" : "Done";
   const queryClient = useQueryClient();
 
-  const handleDelete = () => {
-    fetch("/api/delete-task", {
+  const handleDelete = async () => {
+    await fetch("/api/delete-task", {
       method: "POST",
       body: JSON.stringify({ id: task.id }),
       headers: {
         "Content-Type": "application/json",
       },
-    });
-    queryClient.invalidateQueries();
+    }).then(() => queryClient.invalidateQueries());
   };
 
   return (
@@ -87,21 +86,21 @@ function AddTaskForm() {
   const [name, setName] = useState("");
   const queryClient = useQueryClient();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || name.length > 32) {
       alert("Task name must be between 1 and 32 characters");
       setName("");
       return;
     }
-    fetch("/api/add-task", {
+    await fetch("/api/add-task", {
       method: "POST",
       body: JSON.stringify({ title: name }),
       headers: {
         "Content-Type": "application/json",
       },
-    });
-    setName("");
-    queryClient.invalidateQueries();
+    })
+      .then(() => setName(""))
+      .then(() => queryClient.invalidateQueries());
   };
 
   return (
