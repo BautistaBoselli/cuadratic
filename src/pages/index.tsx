@@ -5,17 +5,26 @@ export default function Home() {
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
       <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
-      <Tasks />
+      <TasksContainer />
     </main>
   );
 }
 
-function Tasks() {
-  const { data, isError } = useQuery<Task[]>({
+function TasksContainer() {
+  const { data, isError, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/get-tasks"],
-    queryFn: async () =>
-      await fetch("/api/get-tasks").then((res) => res.json()),
+    queryFn: async () => {
+      const response = await fetch("/api/get-tasks");
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
   });
+
+  if (isLoading) {
+    return <div>Loading tasks...</div>;
+  }
 
   if (!data || isError) {
     return <div>Error obteniendo las tareas</div>;
