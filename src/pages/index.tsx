@@ -1,6 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "../types/index.js";
 import { useState } from "react";
+import { on } from "events";
 
 export default function Home() {
   return (
@@ -34,10 +35,11 @@ function TasksContainer() {
 
   return (
     <div className="min-h-40 max-w-2xl  rounded-lg bg-white">
-      <div className="grid grid-cols-3 gap-4 px-4 py-2">
+      <div className="grid grid-cols-4 gap-4 px-4 py-2 font-semibold border-b-2 border-slate-200 pb-2">
         <p>Name</p>
-        <p>Hour</p>
-        <p>State</p>
+        <p className="flex items-center justify-center">Hour</p>
+        <p className="flex items-center justify-center">State</p>
+        <p className="flex items-center justify-center">Delete</p>
       </div>
       <ol>
         {data.map((task) => (
@@ -51,12 +53,32 @@ function TasksContainer() {
 function Task({ task }: { task: Task }) {
   let time = task.created_at.slice(0, 5);
   let state = task.state === 0 ? "Todo" : task.state === 1 ? "Doing" : "Done";
+  const queryClient = useQueryClient();
+
+  const handleDelete = () => {
+    fetch("/api/delete-task", {
+      method: "POST",
+      body: JSON.stringify({ id: task.id }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    queryClient.invalidateQueries();
+  };
 
   return (
-    <li className="px-4 font-semibold hover:bg-slate-300 grid grid-cols-3 gap-4 py-1">
-      <div>{task.title}</div>
-      <div>{time}</div>
-      <div>{state}</div>
+    <li className="px-4  hover:bg-slate-300 grid grid-cols-4 gap-4 py-1">
+      <div className="flex items-center ">{task.title}</div>
+      <div className="flex items-center justify-center">{time}</div>
+      <div className="flex items-center justify-center">{state}</div>
+      <div className="flex items-center justify-center">
+        <button
+          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+          onClick={handleDelete}
+        >
+          -
+        </button>
+      </div>
     </li>
   );
 }

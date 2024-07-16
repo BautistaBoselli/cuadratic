@@ -6,10 +6,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  //   console.log(req.body);
-  //get hour and minute
   let time = new Date().toTimeString().slice(0, 5);
-  //   console.log(time);
   try {
     await db.query<Task>("BEGIN");
     const queryText =
