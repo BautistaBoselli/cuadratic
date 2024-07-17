@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "../types/index.js";
-import { useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { on } from "events";
 
 export default function Home() {
@@ -51,8 +51,9 @@ function TasksContainer() {
 }
 
 function Task({ task }: { task: Task }) {
+  const [taskState, setTaskState] = useState(task.state);
+
   let time = task.created_at.slice(0, 5);
-  let state = task.state === 0 ? "Todo" : task.state === 1 ? "Doing" : "Done";
   const queryClient = useQueryClient();
 
   const handleDelete = async () => {
@@ -65,11 +66,36 @@ function Task({ task }: { task: Task }) {
     }).then(() => queryClient.invalidateQueries());
   };
 
+  useEffect(() => {
+    const updateTask = async () =>
+      await fetch("/api/update-task", {
+        method: "POST",
+        body: JSON.stringify({ id: task.id, state: taskState }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }).then(() => queryClient.invalidateQueries());
+
+    updateTask();
+  }, [queryClient, task.id, taskState]);
+
   return (
     <li className="px-4  hover:bg-slate-300 grid grid-cols-4 gap-4 py-1">
       <div className="flex items-center ">{task.title}</div>
       <div className="flex items-center justify-center">{time}</div>
-      <div className="flex items-center justify-center">{state}</div>
+      <div className="flex items-center justify-center">
+        <select
+          className="p-1 rounded-lg"
+          value={taskState}
+          onChange={(e) => {
+            setTaskState(parseInt(e.target.value) as 0 | 1 | 2);
+          }}
+        >
+          <option value="0">Todo</option>
+          <option value="1">Doing</option>
+          <option value="2">Done</option>
+        </select>
+      </div>
       <div className="flex items-center justify-center">
         <button
           className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
