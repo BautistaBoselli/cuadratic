@@ -57,25 +57,33 @@ function Task({ task }: { task: Task }) {
   const queryClient = useQueryClient();
 
   const handleDelete = async () => {
-    await fetch("/api/delete-task", {
+    const response = await fetch("/api/delete-task", {
       method: "POST",
       body: JSON.stringify({ id: task.id }),
       headers: {
         "Content-Type": "application/json",
       },
-    }).then(() => queryClient.invalidateQueries());
+    });
+    if (!response.ok) {
+      alert("Error deleting task");
+    }
+    queryClient.invalidateQueries();
   };
 
   useEffect(() => {
-    const updateTask = async () =>
-      await fetch("/api/update-task", {
+    const updateTask = async () => {
+      const response = await fetch("/api/update-task", {
         method: "POST",
         body: JSON.stringify({ id: task.id, state: taskState }),
         headers: {
           "Content-Type": "application/json",
         },
-      }).then(() => queryClient.invalidateQueries());
-
+      });
+      if (!response.ok) {
+        alert("Error updating task");
+      }
+      queryClient.invalidateQueries();
+    };
     updateTask();
   }, [queryClient, task.id, taskState]);
 
