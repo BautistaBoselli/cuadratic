@@ -60,12 +60,12 @@ Poder editar y crear tareas nuevas en la aplicacion
 
 Necesario:
 
-- [ ] Crear un endpoint para agregar tareas
-- [ ] Crear un endpoint para editar tareas
-- [ ] Crear un endpoint para borrar tareas
-- [ ] Crear el componente de formulario
-- [ ] Modificar el componente de tareas para poder editarlas/borrarlas
-- [ ] Actualizar las tareas luego de ser agregadas/editadas
+- [x] Crear un endpoint para agregar tareas
+- [x] Crear un endpoint para editar tareas
+- [x] Crear un endpoint para borrar tareas
+- [x] Crear el componente de formulario
+- [x] Modificar el componente de tareas para poder editarlas/borrarlas
+- [x] Actualizar las tareas luego de ser agregadas/editadas
 
 ![](/images/2.png)
 
