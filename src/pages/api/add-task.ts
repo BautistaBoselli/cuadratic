@@ -6,17 +6,15 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  let time = new Date().toTimeString().slice(0, 5);
+  let time = new Date();
+
   try {
-    await db.query<Task>("BEGIN");
     const queryText =
       "INSERT INTO tasks (title, created_at) VALUES ($1, $2) RETURNING *";
     await db.query<Task>(queryText, [req.body.title, time]);
-    await db.query<Task>("COMMIT");
     res.status(200).json({ message: "Tarea creada" });
   } catch (error) {
     console.error(error);
-    await db.query<Task>("ROLLBACK");
     res.status(500).json({ message: "Error creando la tarea" });
   }
 }

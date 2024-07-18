@@ -14,14 +14,11 @@ export default async function handler(
   }
 
   try {
-    await db.query<Task>("BEGIN");
     const queryText = "DELETE FROM tasks WHERE id = $1";
     await db.query<Task>(queryText, [req.body.id]);
-    await db.query<Task>("COMMIT");
     res.status(200).json({ message: "Tarea eliminada" });
   } catch (error) {
     console.error(error);
-    await db.query<Task>("ROLLBACK");
     res.status(500).json({ message: "Error eliminando la tarea" });
   }
 }

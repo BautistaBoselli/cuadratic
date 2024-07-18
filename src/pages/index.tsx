@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "../types/index.js";
-import { ChangeEvent, useEffect, useState } from "react";
-import { on } from "events";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { addHours, formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function Home() {
   return (
@@ -37,7 +38,7 @@ function TasksContainer() {
     <div className="min-h-40 max-w-2xl  rounded-lg bg-white">
       <div className="grid grid-cols-4 gap-4 px-4 py-2 font-semibold border-b-2 border-slate-200 pb-2">
         <p>Name</p>
-        <p className="flex items-center justify-center">Hour</p>
+        <p>Hour</p>
         <p className="flex items-center justify-center">State</p>
         <p className="flex items-center justify-center">Delete</p>
       </div>
@@ -51,11 +52,12 @@ function TasksContainer() {
 }
 
 function Task({ task }: { task: Task }) {
-  const [taskState, setTaskState] = useState(task.state);
   const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState(task.title);
+  const nameRef = useRef<HTMLInputElement>(null);
 
-  let time = task.created_at.slice(0, 5);
+  let date = new Date(task.created_at);
+  const time = formatDistanceToNow(date);
+
   const queryClient = useQueryClient();
 
   const handleDelete = async () => {
@@ -72,31 +74,26 @@ function Task({ task }: { task: Task }) {
     queryClient.invalidateQueries();
   };
 
-  useEffect(() => {
-    const updateTask = async () => {
-      const response = await fetch("/api/update-task-state", {
-        method: "POST",
-        body: JSON.stringify({ id: task.id, state: taskState }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) {
-        console.log(response);
-        alert("Error updating task");
-      }
-      queryClient.invalidateQueries();
-    };
-    updateTask();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskState]);
+  const updateTask = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const response = await fetch("/api/update-task-state", {
+      method: "POST",
+      body: JSON.stringify({ id: task.id, state: e.target.value }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!response.ok) {
+      alert("Error updating task");
+    }
+    queryClient.invalidateQueries();
+  };
 
   const handleEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       setEditingName(false);
       const response = await fetch("/api/update-task-title", {
         method: "POST",
-        body: JSON.stringify({ id: task.id, title: newName }),
+        body: JSON.stringify({ id: task.id, title: nameRef.current?.value }),
         headers: {
           "Content-Type": "application/json",
         },
@@ -113,9 +110,9 @@ function Task({ task }: { task: Task }) {
       {editingName ? (
         <input
           className="p-2 rounded-lg w-full"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
           autoFocus
+          defaultValue={task.title}
+          ref={nameRef}
           onKeyDown={handleEnter}
           onBlur={() => setEditingName(false)}
         />
@@ -127,14 +124,12 @@ function Task({ task }: { task: Task }) {
           {task.title}
         </div>
       )}
-      <div className="flex items-center justify-center">{time}</div>
+      <div>{time}</div>
       <div className="flex items-center justify-center">
         <select
           className="p-1 rounded-lg"
-          value={taskState}
-          onChange={(e) => {
-            setTaskState(parseInt(e.target.value) as 0 | 1 | 2);
-          }}
+          value={task.state}
+          onChange={updateTask}
         >
           <option value="0">Todo</option>
           <option value="1">Doing</option>
@@ -157,7 +152,8 @@ function AddTaskForm() {
   const [name, setName] = useState("");
   const queryClient = useQueryClient();
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (!name || name.length > 32) {
       alert("Task name must be between 1 and 32 characters");
       setName("");
@@ -169,13 +165,14 @@ function AddTaskForm() {
       headers: {
         "Content-Type": "application/json",
       },
-    })
-      .then(() => setName(""))
-      .then(() => queryClient.invalidateQueries());
+    }).then(() => {
+      setName("");
+      queryClient.invalidateQueries();
+    });
   };
 
   return (
-    <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit} id="form">
+    <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
       <input
         type="text"
         name="title"

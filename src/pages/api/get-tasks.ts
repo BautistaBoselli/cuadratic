@@ -10,6 +10,7 @@ export default async function handler(
     const response = await db.query<Task>(
       "SELECT * FROM tasks ORDER BY id ASC"
     );
+    console.log(response.rows);
     res.status(200).json(response.rows);
   } catch (error) {
     console.error(error);
