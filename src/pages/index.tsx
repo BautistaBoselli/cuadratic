@@ -52,6 +52,8 @@ function TasksContainer() {
 
 function Task({ task }: { task: Task }) {
   const [taskState, setTaskState] = useState(task.state);
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState(task.title);
 
   let time = task.created_at.slice(0, 5);
   const queryClient = useQueryClient();
@@ -72,9 +74,29 @@ function Task({ task }: { task: Task }) {
 
   useEffect(() => {
     const updateTask = async () => {
-      const response = await fetch("/api/update-task", {
+      const response = await fetch("/api/update-task-state", {
         method: "POST",
         body: JSON.stringify({ id: task.id, state: taskState }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        console.log(response);
+        alert("Error updating task");
+      }
+      queryClient.invalidateQueries();
+    };
+    updateTask();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskState]);
+
+  const handleEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      setEditingName(false);
+      const response = await fetch("/api/update-task-title", {
+        method: "POST",
+        body: JSON.stringify({ id: task.id, title: newName }),
         headers: {
           "Content-Type": "application/json",
         },
@@ -83,13 +105,28 @@ function Task({ task }: { task: Task }) {
         alert("Error updating task");
       }
       queryClient.invalidateQueries();
-    };
-    updateTask();
-  }, [queryClient, task.id, taskState]);
+    }
+  };
 
   return (
     <li className="px-4  hover:bg-slate-300 grid grid-cols-4 gap-4 py-1">
-      <div className="flex items-center ">{task.title}</div>
+      {editingName ? (
+        <input
+          className="p-2 rounded-lg w-full"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          autoFocus
+          onKeyDown={handleEnter}
+          onBlur={() => setEditingName(false)}
+        />
+      ) : (
+        <div
+          className="flex items-center "
+          onDoubleClick={() => setEditingName(true)}
+        >
+          {task.title}
+        </div>
+      )}
       <div className="flex items-center justify-center">{time}</div>
       <div className="flex items-center justify-center">
         <select
@@ -138,7 +175,7 @@ function AddTaskForm() {
   };
 
   return (
-    <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
+    <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit} id="form">
       <input
         type="text"
         name="title"

@@ -6,6 +6,10 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
+  }
+
   try {
     await db.query<Task>("BEGIN");
     const queryText = "UPDATE tasks SET state = $2 WHERE id = $1";

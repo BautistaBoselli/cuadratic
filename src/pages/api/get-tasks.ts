@@ -7,7 +7,9 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const response = await db.query<Task>("SELECT * FROM tasks");
+    const response = await db.query<Task>(
+      "SELECT * FROM tasks ORDER BY id ASC"
+    );
     res.status(200).json(response.rows);
   } catch (error) {
     console.error(error);
