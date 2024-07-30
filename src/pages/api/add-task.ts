@@ -10,8 +10,8 @@ export default async function handler(
 
   try {
     const queryText =
-      "INSERT INTO tasks (title, created_at) VALUES ($1, $2) RETURNING *";
-    await db.query<Task>(queryText, [req.body.title, time]);
+      "INSERT INTO tasks (title, created_at, username) VALUES ($1, $2, $3) RETURNING *";
+    await db.query<Task>(queryText, [req.body.title, time, req.body.user]);
     res.status(200).json({ message: "Tarea creada" });
   } catch (error) {
     console.error(error);

@@ -1,30 +1,89 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "../types/index.js";
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { addHours, formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
+import {
+  act,
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { add, addHours, format, formatDistanceToNow } from "date-fns";
 
 export default function Home() {
+  const [loggedUser, setLoggedUser] = useState("");
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
-      <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
-      <TasksContainer />
-      <AddTaskForm />
+      <div className="flex justify-between items-center max-w-2xl">
+        <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
+        <LoginForm setActiveUser={setLoggedUser} />
+      </div>
+      <TasksContainer activeUser={loggedUser} />
+      <AddTaskForm activeUser={loggedUser} />
     </main>
   );
 }
 
-function TasksContainer() {
+function LoginForm({
+  setActiveUser,
+}: {
+  setActiveUser: (user: string) => void;
+}) {
+  // const [username, setUsername] = useState("");
+  const userRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!userRef.current || userRef.current.value.length > 32) {
+      alert("Username must be between 1 and 32 characters");
+      return;
+    }
+    setActiveUser(userRef.current.value);
+    queryClient.invalidateQueries();
+  };
+
+  return (
+    <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
+      <input
+        type="text"
+        name="title"
+        placeholder="Username"
+        className="p-2 rounded-lg w-full"
+        // value={username}
+        // onChange={(e) => setUsername(e.target.value)}
+        ref={userRef}
+      />
+      <button
+        type="submit"
+        className="p-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 w-40"
+      >
+        Login
+      </button>
+    </form>
+  );
+}
+
+function TasksContainer({ activeUser }: { activeUser: string }) {
   const { data, isError, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/get-tasks"],
     queryFn: async () => {
-      const response = await fetch("/api/get-tasks");
+      console.log(activeUser);
+      const response = await fetch(`/api/get-tasks?user=${activeUser}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
       return response.json();
     },
   });
+
+  if (!activeUser || activeUser.length > 32) {
+    return (
+      <div className="min-h-40 max-w-2xl  rounded-lg bg-white p-2">
+        Login to see tasks
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <div>Loading tasks...</div>;
@@ -56,7 +115,8 @@ function Task({ task }: { task: Task }) {
   const nameRef = useRef<HTMLInputElement>(null);
 
   let date = new Date(task.created_at);
-  const time = formatDistanceToNow(date);
+  const time = format(date, "HH:mm");
+  // const time = formatDistanceToNow(date);
 
   const queryClient = useQueryClient();
 
@@ -148,45 +208,57 @@ function Task({ task }: { task: Task }) {
   );
 }
 
-function AddTaskForm() {
-  const [name, setName] = useState("");
+function AddTaskForm({ activeUser }: { activeUser: string }) {
+  const [taskName, setTaskName] = useState("");
   const queryClient = useQueryClient();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!name || name.length > 32) {
+    if (!taskName || taskName.length > 32) {
       alert("Task name must be between 1 and 32 characters");
-      setName("");
+      setTaskName("");
       return;
     }
     await fetch("/api/add-task", {
       method: "POST",
-      body: JSON.stringify({ title: name }),
+      body: JSON.stringify({ title: taskName, user: activeUser }),
       headers: {
         "Content-Type": "application/json",
       },
     }).then(() => {
-      setName("");
+      setTaskName("");
       queryClient.invalidateQueries();
     });
   };
 
+  const userLogin = activeUser && activeUser.length <= 32;
+
   return (
-    <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        name="title"
-        placeholder="Task name"
-        className="p-2 rounded-lg w-full"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <button
-        type="submit"
-        className="p-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 w-40"
-      >
-        Add Task
-      </button>
-    </form>
+    <>
+      {!userLogin ? (
+        <div className="flex gap-2 max-w-2xl">
+          <p className="p-2 rounded-lg w-full bg-slate-400">
+            Login to add tasks{" "}
+          </p>
+        </div>
+      ) : (
+        <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            name="title"
+            placeholder="Task name"
+            className="p-2 rounded-lg w-full"
+            value={taskName}
+            onChange={(e) => setTaskName(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="p-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 w-40"
+          >
+            Add Task
+          </button>
+        </form>
+      )}
+    </>
   );
 }

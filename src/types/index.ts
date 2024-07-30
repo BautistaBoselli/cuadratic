@@ -3,4 +3,5 @@ export type Task = {
   title: string;
   created_at: string;
   state: 0 | 1 | 2;
+  username: string;
 };
