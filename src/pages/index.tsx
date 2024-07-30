@@ -4,6 +4,7 @@ import {
   act,
   ChangeEvent,
   FormEvent,
+  use,
   useEffect,
   useRef,
   useState,
@@ -11,35 +12,38 @@ import {
 import { add, addHours, format, formatDistanceToNow } from "date-fns";
 
 export default function Home() {
-  const [loggedUser, setLoggedUser] = useState("");
+  const userRef = useRef<HTMLInputElement>(null);
+  const [userLogin, setUserLogin] = useState("");
+
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
       <div className="flex justify-between items-center max-w-2xl">
         <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
-        <LoginForm setActiveUser={setLoggedUser} />
+        <LoginForm userRef={userRef} onSubmit={setUserLogin} />
       </div>
-      <TasksContainer activeUser={loggedUser} />
-      <AddTaskForm activeUser={loggedUser} />
+      <TasksContainer userRef={userRef} />
+      <AddTaskForm userRef={userRef} activeUser={userLogin} />
     </main>
   );
 }
 
 function LoginForm({
-  setActiveUser,
+  userRef,
+  onSubmit,
 }: {
-  setActiveUser: (user: string) => void;
+  userRef: React.RefObject<HTMLInputElement>;
+  onSubmit: (value: string) => void;
 }) {
-  // const [username, setUsername] = useState("");
-  const userRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     if (!userRef.current || userRef.current.value.length > 32) {
       alert("Username must be between 1 and 32 characters");
       return;
     }
-    setActiveUser(userRef.current.value);
+    onSubmit(userRef.current.value);
     queryClient.invalidateQueries();
   };
 
@@ -50,9 +54,9 @@ function LoginForm({
         name="title"
         placeholder="Username"
         className="p-2 rounded-lg w-full"
-        // value={username}
-        // onChange={(e) => setUsername(e.target.value)}
         ref={userRef}
+        // OnBlur??
+        // defaultValue??
       />
       <button
         type="submit"
@@ -64,12 +68,21 @@ function LoginForm({
   );
 }
 
-function TasksContainer({ activeUser }: { activeUser: string }) {
+function TasksContainer({
+  userRef,
+}: {
+  userRef: React.RefObject<HTMLInputElement>;
+}) {
+  const activeUser = userRef.current?.value;
+  console.log("activeUser", activeUser);
+
   const { data, isError, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/get-tasks"],
     queryFn: async () => {
-      console.log(activeUser);
-      const response = await fetch(`/api/get-tasks?user=${activeUser}`);
+      const response = await fetch(
+        `/api/get-tasks?user=${userRef.current?.value}`
+        // porque aca activeUser no funciona?
+      );
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -208,7 +221,13 @@ function Task({ task }: { task: Task }) {
   );
 }
 
-function AddTaskForm({ activeUser }: { activeUser: string }) {
+function AddTaskForm({
+  userRef,
+  activeUser,
+}: {
+  userRef: React.RefObject<HTMLInputElement>;
+  activeUser: string;
+}) {
   const [taskName, setTaskName] = useState("");
   const queryClient = useQueryClient();
 
@@ -221,7 +240,7 @@ function AddTaskForm({ activeUser }: { activeUser: string }) {
     }
     await fetch("/api/add-task", {
       method: "POST",
-      body: JSON.stringify({ title: taskName, user: activeUser }),
+      body: JSON.stringify({ title: taskName, user: userRef.current?.value }),
       headers: {
         "Content-Type": "application/json",
       },
