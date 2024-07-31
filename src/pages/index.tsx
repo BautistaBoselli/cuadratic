@@ -9,91 +9,99 @@ import {
   useRef,
   useState,
 } from "react";
-import { add, addHours, format, formatDistanceToNow } from "date-fns";
+import { add, addHours, format, formatDistanceToNow, set } from "date-fns";
+import { se, th } from "date-fns/locale";
 
 export default function Home() {
-  const userRef = useRef<HTMLInputElement>(null);
   const [userLogin, setUserLogin] = useState("");
 
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
       <div className="flex justify-between items-center max-w-2xl">
         <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
-        <LoginForm userRef={userRef} onSubmit={setUserLogin} />
+        <LoginForm setUserLogin={setUserLogin} />
       </div>
-      <TasksContainer userRef={userRef} />
-      <AddTaskForm userRef={userRef} activeUser={userLogin} />
+      <TasksContainer userLogin={userLogin} />
+      <AddTaskForm userLogin={userLogin} />
     </main>
   );
 }
 
-function LoginForm({
-  userRef,
-  onSubmit,
-}: {
-  userRef: React.RefObject<HTMLInputElement>;
-  onSubmit: (value: string) => void;
-}) {
+function LoginForm({ setUserLogin }: { setUserLogin: (user: string) => void }) {
+  const [isUserLogged, setIsUserLogged] = useState(false);
+  const [inputValue, setInputValue] = useState("");
   const queryClient = useQueryClient();
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!userRef.current || userRef.current.value.length > 32) {
+    if (!inputValue || inputValue.length > 32) {
       alert("Username must be between 1 and 32 characters");
+      setUserLogin("");
+      setIsUserLogged(false);
       return;
     }
-    onSubmit(userRef.current.value);
+
+    setUserLogin(inputValue);
+    setIsUserLogged(true);
     queryClient.invalidateQueries();
   };
 
+  const handleClick = () => {
+    setIsUserLogged(false);
+    setUserLogin("");
+    setInputValue("");
+  };
+
   return (
-    <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        name="title"
-        placeholder="Username"
-        className="p-2 rounded-lg w-full"
-        ref={userRef}
-        // OnBlur??
-        // defaultValue??
-      />
-      <button
-        type="submit"
-        className="p-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 w-40"
-      >
-        Login
-      </button>
-    </form>
+    <>
+      {isUserLogged ? (
+        <div className="flex gap-2 max-w-2xl bg-white p-2 rounded-lg hover:bg-slate-400 w-40">
+          <button className="w-full" onClick={handleClick}>
+            {inputValue}
+          </button>
+        </div>
+      ) : (
+        <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            name="title"
+            placeholder="Username"
+            className="p-2 rounded-lg w-full"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            autoFocus
+          />
+          <button
+            type="submit"
+            className="p-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 w-40"
+          >
+            Login
+          </button>
+        </form>
+      )}
+    </>
   );
 }
 
-function TasksContainer({
-  userRef,
-}: {
-  userRef: React.RefObject<HTMLInputElement>;
-}) {
-  const activeUser = userRef.current?.value;
-  console.log("activeUser", activeUser);
-
+function TasksContainer({ userLogin }: { userLogin: string }) {
   const { data, isError, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/get-tasks"],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/get-tasks?user=${userRef.current?.value}`
-        // porque aca activeUser no funciona?
-      );
+      console.log(userLogin);
+      const response = await fetch(`/api/get-tasks?user=${userLogin}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
       return response.json();
     },
+    enabled: !!userLogin,
   });
 
-  if (!activeUser || activeUser.length > 32) {
+  if (!userLogin || userLogin.length > 32) {
     return (
       <div className="min-h-40 max-w-2xl  rounded-lg bg-white p-2">
-        Login to see tasks
+        Login with a valid user to see tasks
       </div>
     );
   }
@@ -221,13 +229,7 @@ function Task({ task }: { task: Task }) {
   );
 }
 
-function AddTaskForm({
-  userRef,
-  activeUser,
-}: {
-  userRef: React.RefObject<HTMLInputElement>;
-  activeUser: string;
-}) {
+function AddTaskForm({ userLogin }: { userLogin: string }) {
   const [taskName, setTaskName] = useState("");
   const queryClient = useQueryClient();
 
@@ -240,7 +242,7 @@ function AddTaskForm({
     }
     await fetch("/api/add-task", {
       method: "POST",
-      body: JSON.stringify({ title: taskName, user: userRef.current?.value }),
+      body: JSON.stringify({ title: taskName, user: userLogin }),
       headers: {
         "Content-Type": "application/json",
       },
@@ -250,11 +252,11 @@ function AddTaskForm({
     });
   };
 
-  const userLogin = activeUser && activeUser.length <= 32;
+  const isUserLogged = userLogin && userLogin.length <= 32;
 
   return (
     <>
-      {!userLogin ? (
+      {!isUserLogged ? (
         <div className="flex gap-2 max-w-2xl">
           <p className="p-2 rounded-lg w-full bg-slate-400">
             Login to add tasks{" "}
