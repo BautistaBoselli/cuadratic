@@ -14,16 +14,49 @@ import { se, th } from "date-fns/locale";
 
 export default function Home() {
   const [userLogin, setUserLogin] = useState("");
+  const [sortBy, setSortBy] = useState("sort by");
 
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
+      <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
       <div className="flex justify-between items-center max-w-2xl">
-        <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
+        <SortBySelect sortBy={sortBy} OnSelect={setSortBy} />
         <LoginForm setUserLogin={setUserLogin} />
       </div>
-      <TasksContainer userLogin={userLogin} />
+      <TasksContainer userLogin={userLogin} sortBy={sortBy} />
       <AddTaskForm userLogin={userLogin} />
     </main>
+  );
+}
+
+function SortBySelect({
+  sortBy,
+  OnSelect,
+}: {
+  sortBy: string;
+  OnSelect: (value: string) => void;
+}) {
+  const queryClient = useQueryClient();
+
+  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    OnSelect(e.target.value);
+    queryClient.invalidateQueries();
+  };
+
+  return (
+    <select
+      className="p-2 rounded-lg w-40 bg-white"
+      value={sortBy}
+      onChange={handleChange}
+    >
+      <option value="sort by" hidden>
+        Sort by
+      </option>
+      <option value="id">Id</option>
+      <option value="title">Task Name</option>
+      <option value="state">State</option>
+      <option value="created_at">Hour</option>
+    </select>
   );
 }
 
@@ -84,12 +117,22 @@ function LoginForm({ setUserLogin }: { setUserLogin: (user: string) => void }) {
   );
 }
 
-function TasksContainer({ userLogin }: { userLogin: string }) {
+function TasksContainer({
+  userLogin,
+  sortBy,
+}: {
+  userLogin: string;
+  sortBy: string;
+}) {
+  const sortSelection = sortBy === "sort by" ? "id" : sortBy;
+
   const { data, isError, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/get-tasks"],
     queryFn: async () => {
       console.log(userLogin);
-      const response = await fetch(`/api/get-tasks?user=${userLogin}`);
+      const response = await fetch(
+        `/api/get-tasks?user=${userLogin}&sortBy=${sortSelection}`
+      );
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -114,6 +157,20 @@ function TasksContainer({ userLogin }: { userLogin: string }) {
     return <div>Error obteniendo las tareas</div>;
   }
 
+  const sortedTasks = data.sort((a, b) => {
+    if (sortSelection === "created_at") {
+      return (
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    } else if (sortSelection === "title") {
+      return a.title.localeCompare(b.title);
+    } else if (sortSelection === "state") {
+      return a.state - b.state;
+    } else {
+      return a.id - b.id;
+    }
+  });
+
   return (
     <div className="min-h-40 max-w-2xl  rounded-lg bg-white">
       <div className="grid grid-cols-4 gap-4 px-4 py-2 font-semibold border-b-2 border-slate-200 pb-2">
@@ -123,7 +180,10 @@ function TasksContainer({ userLogin }: { userLogin: string }) {
         <p className="flex items-center justify-center">Delete</p>
       </div>
       <ol>
-        {data.map((task) => (
+        {/* {data.map((task) => (
+          <Task key={task.id} task={task} />
+        ))} */}
+        {sortedTasks.map((task) => (
           <Task key={task.id} task={task} />
         ))}
       </ol>
