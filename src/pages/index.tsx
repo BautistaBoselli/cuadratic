@@ -11,36 +11,41 @@ import {
 } from "react";
 import { add, addHours, format, formatDistanceToNow, set } from "date-fns";
 import { se, th } from "date-fns/locale";
+import React from "react";
+import { useSession } from "@/components/auth";
 
 export default function Home() {
-  const [userLogin, setUserLogin] = useState("");
+  const session = useSession();
   const [sortBy, setSortBy] = useState("sort by");
+
+  if (session.status === "pending") {
+    return (
+      <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4"></main>
+    );
+  }
 
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
       <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
       <div className="flex justify-between items-center max-w-2xl">
-        <SortBySelect sortBy={sortBy} OnSelect={setSortBy} />
-        <LoginForm setUserLogin={setUserLogin} />
+        <SortBySelect sortBy={sortBy} onSelect={setSortBy} />
+        <LoginForm />
       </div>
-      <TasksContainer userLogin={userLogin} sortBy={sortBy} />
-      <AddTaskForm userLogin={userLogin} />
+      <TasksContainer sortBy={sortBy} />
+      <AddTaskForm />
     </main>
   );
 }
 
 function SortBySelect({
   sortBy,
-  OnSelect,
+  onSelect: OnSelect,
 }: {
   sortBy: string;
-  OnSelect: (value: string) => void;
+  onSelect: (value: string) => void;
 }) {
-  const queryClient = useQueryClient();
-
   const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     OnSelect(e.target.value);
-    queryClient.invalidateQueries();
   };
 
   return (
@@ -60,9 +65,9 @@ function SortBySelect({
   );
 }
 
-function LoginForm({ setUserLogin }: { setUserLogin: (user: string) => void }) {
-  const [isUserLogged, setIsUserLogged] = useState(false);
-  const [inputValue, setInputValue] = useState("");
+function LoginForm() {
+  const session = useSession();
+  const [inputValue, setInputValue] = useState(session.username || "");
   const queryClient = useQueryClient();
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -70,78 +75,56 @@ function LoginForm({ setUserLogin }: { setUserLogin: (user: string) => void }) {
 
     if (!inputValue || inputValue.length > 32) {
       alert("Username must be between 1 and 32 characters");
-      setUserLogin("");
-      setIsUserLogged(false);
+      session.logout();
       return;
     }
 
-    setUserLogin(inputValue);
-    setIsUserLogged(true);
-    queryClient.invalidateQueries();
-  };
-
-  const handleClick = () => {
-    setIsUserLogged(false);
-    setUserLogin("");
-    setInputValue("");
+    session.login(inputValue);
   };
 
   return (
     <>
-      {isUserLogged ? (
-        <div className="flex gap-2 max-w-2xl bg-white p-2 rounded-lg hover:bg-slate-400 w-40">
-          <button className="w-full" onClick={handleClick}>
-            {inputValue}
-          </button>
-        </div>
-      ) : (
-        <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            name="title"
-            placeholder="Username"
-            className="p-2 rounded-lg w-full"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            autoFocus
-          />
+      <form className="flex gap-2 max-w-2xl" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          name="title"
+          placeholder="Username"
+          className="p-2 rounded-lg w-full"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          autoFocus
+        />
+        {!session.isLogged || session.username !== inputValue ? (
           <button
             type="submit"
             className="p-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 w-40"
           >
-            Login
+            {session.isLogged ? "Update" : "Login"}
           </button>
-        </form>
-      )}
+        ) : null}
+      </form>
     </>
   );
 }
 
-function TasksContainer({
-  userLogin,
-  sortBy,
-}: {
-  userLogin: string;
-  sortBy: string;
-}) {
+function TasksContainer({ sortBy }: { sortBy: string }) {
+  const session = useSession();
   const sortSelection = sortBy === "sort by" ? "id" : sortBy;
 
   const { data, isError, isLoading } = useQuery<Task[]>({
-    queryKey: ["/api/get-tasks"],
+    queryKey: ["/api/get-tasks", session.username],
     queryFn: async () => {
-      console.log(userLogin);
-      const response = await fetch(
-        `/api/get-tasks?user=${userLogin}&sortBy=${sortSelection}`
-      );
+      const response = await fetch(`/api/get-tasks?user=${session.username}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
       return response.json();
     },
-    enabled: !!userLogin,
+    enabled: Boolean(session.username),
+    placeholderData: (prev) => prev,
   });
 
-  if (!userLogin || userLogin.length > 32) {
+  if (!session.username || session.username.length > 32) {
     return (
       <div className="min-h-40 max-w-2xl  rounded-lg bg-white p-2">
         Login with a valid user to see tasks
@@ -180,9 +163,6 @@ function TasksContainer({
         <p className="flex items-center justify-center">Delete</p>
       </div>
       <ol>
-        {/* {data.map((task) => (
-          <Task key={task.id} task={task} />
-        ))} */}
         {sortedTasks.map((task) => (
           <Task key={task.id} task={task} />
         ))}
@@ -289,9 +269,10 @@ function Task({ task }: { task: Task }) {
   );
 }
 
-function AddTaskForm({ userLogin }: { userLogin: string }) {
+function AddTaskForm() {
   const [taskName, setTaskName] = useState("");
   const queryClient = useQueryClient();
+  const session = useSession();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -302,7 +283,7 @@ function AddTaskForm({ userLogin }: { userLogin: string }) {
     }
     await fetch("/api/add-task", {
       method: "POST",
-      body: JSON.stringify({ title: taskName, user: userLogin }),
+      body: JSON.stringify({ title: taskName, user: session.username }),
       headers: {
         "Content-Type": "application/json",
       },
@@ -312,7 +293,7 @@ function AddTaskForm({ userLogin }: { userLogin: string }) {
     });
   };
 
-  const isUserLogged = userLogin && userLogin.length <= 32;
+  const isUserLogged = session.username && session.username.length <= 32;
 
   return (
     <>

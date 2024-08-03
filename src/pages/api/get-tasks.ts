@@ -7,7 +7,7 @@ export default async function handler(
   res: NextApiResponse
 ) {
   console.log(req.query);
-  const { user, sortBy } = req.query;
+  const { user } = req.query;
 
   if (!user || user.length > 32) {
     return res.status(400).json({ message: "Failure loggin in" });
@@ -16,8 +16,6 @@ export default async function handler(
   try {
     const queryText = "SELECT * FROM tasks WHERE username = $1 ORDER BY id ASC";
     const response = await db.query<Task>(queryText, [user]);
-    //   "SELECT * FROM tasks WHERE username = ($1) ORDER BY $2 ASC";
-    // const response = await db.query<Task>(queryText, [user, sortBy]);
     console.log(response.rows);
     res.status(200).json(response.rows);
   } catch (error) {
