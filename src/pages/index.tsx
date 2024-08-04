@@ -68,7 +68,6 @@ function SortBySelect({
 function LoginForm() {
   const session = useSession();
   const [inputValue, setInputValue] = useState(session.username || "");
-  const queryClient = useQueryClient();
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -93,6 +92,7 @@ function LoginForm() {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           autoFocus
+          onBlur={() => setInputValue(session.username || "")}
         />
         {!session.isLogged || session.username !== inputValue ? (
           <button
