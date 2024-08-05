@@ -10,13 +10,15 @@ import {
   useState,
 } from "react";
 import { add, addHours, format, formatDistanceToNow, set } from "date-fns";
-import { se, th } from "date-fns/locale";
+import { ca, se, th } from "date-fns/locale";
 import React from "react";
 import { useSession } from "@/components/auth";
+import stringToNumber from "@/utils/string-to-number";
 
 export default function Home() {
   const session = useSession();
   const [sortBy, setSortBy] = useState("sort by");
+  const [delay, setDelay] = useState("");
 
   if (session.status === "pending") {
     return (
@@ -26,42 +28,17 @@ export default function Home() {
 
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
-      <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
       <div className="flex justify-between items-center max-w-2xl">
-        <SortBySelect sortBy={sortBy} onSelect={setSortBy} />
+        <h1 className="text-xl text-slate-700 font-bold">Cuadratic</h1>
         <LoginForm />
       </div>
-      <TasksContainer sortBy={sortBy} />
-      <AddTaskForm />
+      <div className="flex justify-between items-center max-w-2xl">
+        <SortBySelect sortBy={sortBy} onSelect={setSortBy} />
+        <DelayInput delay={delay} setDelay={setDelay} />
+      </div>
+      <TasksContainer sortBy={sortBy} delay={delay} />
+      <AddTaskForm delay={delay} />
     </main>
-  );
-}
-
-function SortBySelect({
-  sortBy,
-  onSelect: OnSelect,
-}: {
-  sortBy: string;
-  onSelect: (value: string) => void;
-}) {
-  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    OnSelect(e.target.value);
-  };
-
-  return (
-    <select
-      className="p-2 rounded-lg w-40 bg-white"
-      value={sortBy}
-      onChange={handleChange}
-    >
-      <option value="sort by" hidden>
-        Sort by
-      </option>
-      <option value="id">Id</option>
-      <option value="title">Task Name</option>
-      <option value="state">State</option>
-      <option value="created_at">Hour</option>
-    </select>
   );
 }
 
@@ -107,14 +84,101 @@ function LoginForm() {
   );
 }
 
-function TasksContainer({ sortBy }: { sortBy: string }) {
+function SortBySelect({
+  sortBy,
+  onSelect: OnSelect,
+}: {
+  sortBy: string;
+  onSelect: (value: string) => void;
+}) {
+  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    OnSelect(e.target.value);
+  };
+
+  return (
+    <select
+      className="p-2 rounded-lg w-40 bg-white"
+      value={sortBy}
+      onChange={handleChange}
+    >
+      <option value="sort by" hidden>
+        Sort by
+      </option>
+      <option value="id">Id</option>
+      <option value="title">Task Name</option>
+      <option value="state">State</option>
+      <option value="created_at">Hour</option>
+    </select>
+  );
+}
+
+function DelayInput({
+  delay,
+  setDelay,
+}: {
+  delay: string;
+  setDelay: (value: string) => void;
+}) {
+  const session = useSession();
+  const [inputValue, setInputValue] = useState(delay || "");
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      const num = stringToNumber(inputValue);
+      setDelay(inputValue);
+    } catch (error) {
+      alert("Invalid delay");
+    }
+  };
+
+  if (!session.isLogged) {
+    return (
+      <div className="flex gap-2 max-w-2xl">
+        <p className="p-2 rounded-lg w-full bg-slate-400">Login to add delay</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <form
+        className="flex gap-2 max-w-2xl items-center"
+        onSubmit={handleSubmit}
+      >
+        <label>Delay</label>
+        <input
+          type="text"
+          name="delay"
+          placeholder="Delay"
+          className="p-2 rounded-lg w-full"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={() => setInputValue(delay)}
+        />
+        {delay === inputValue ? null : (
+          <button
+            type="submit"
+            className="p-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 w-40"
+          >
+            Update
+          </button>
+        )}
+      </form>
+    </>
+  );
+}
+
+function TasksContainer({ sortBy, delay }: { sortBy: string; delay: string }) {
   const session = useSession();
   const sortSelection = sortBy === "sort by" ? "id" : sortBy;
 
   const { data, isError, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/get-tasks", session.username],
     queryFn: async () => {
-      const response = await fetch(`/api/get-tasks?user=${session.username}`);
+      const response = await fetch(
+        `/api/get-tasks?user=${session.username}&delay=${delay}`
+      );
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -269,7 +333,7 @@ function Task({ task }: { task: Task }) {
   );
 }
 
-function AddTaskForm() {
+function AddTaskForm({ delay }: { delay: string }) {
   const [taskName, setTaskName] = useState("");
   const queryClient = useQueryClient();
   const session = useSession();
@@ -283,7 +347,11 @@ function AddTaskForm() {
     }
     await fetch("/api/add-task", {
       method: "POST",
-      body: JSON.stringify({ title: taskName, user: session.username }),
+      body: JSON.stringify({
+        title: taskName,
+        user: session.username,
+        delay: delay,
+      }),
       headers: {
         "Content-Type": "application/json",
       },
