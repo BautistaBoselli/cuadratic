@@ -1,4 +1,9 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { Task } from "../types/index.js";
 import {
   act,
@@ -14,6 +19,7 @@ import { ca, se, th } from "date-fns/locale";
 import React from "react";
 import { useSession } from "@/components/auth";
 import stringToNumber from "@/utils/string-to-number";
+import sortTasks from "@/utils/sort-tasks";
 
 export default function Home() {
   const session = useSession();
@@ -26,6 +32,8 @@ export default function Home() {
     );
   }
 
+  const sortSelection = sortBy === "sort by" ? "id" : sortBy;
+
   return (
     <main className="h-screen bg-slate-200 p-10 flex flex-col gap-4">
       <div className="flex justify-between items-center max-w-2xl">
@@ -36,7 +44,7 @@ export default function Home() {
         <SortBySelect sortBy={sortBy} onSelect={setSortBy} />
         <DelayInput delay={delay} setDelay={setDelay} />
       </div>
-      <TasksContainer sortBy={sortBy} delay={delay} />
+      <TasksContainer sortSelection={sortSelection} delay={delay} />
       <AddTaskForm delay={delay} />
     </main>
   );
@@ -169,9 +177,14 @@ function DelayInput({
   );
 }
 
-function TasksContainer({ sortBy, delay }: { sortBy: string; delay: string }) {
+function TasksContainer({
+  sortSelection,
+  delay,
+}: {
+  sortSelection: string;
+  delay: string;
+}) {
   const session = useSession();
-  const sortSelection = sortBy === "sort by" ? "id" : sortBy;
 
   const { data, isError, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/get-tasks", session.username],
@@ -204,19 +217,7 @@ function TasksContainer({ sortBy, delay }: { sortBy: string; delay: string }) {
     return <div>Error obteniendo las tareas</div>;
   }
 
-  const sortedTasks = data.sort((a, b) => {
-    if (sortSelection === "created_at") {
-      return (
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-    } else if (sortSelection === "title") {
-      return a.title.localeCompare(b.title);
-    } else if (sortSelection === "state") {
-      return a.state - b.state;
-    } else {
-      return a.id - b.id;
-    }
-  });
+  const sortedTasks = sortTasks(data, sortSelection);
 
   return (
     <div className="min-h-40 max-w-2xl  rounded-lg bg-white">
@@ -228,14 +229,14 @@ function TasksContainer({ sortBy, delay }: { sortBy: string; delay: string }) {
       </div>
       <ol>
         {sortedTasks.map((task) => (
-          <Task key={task.id} task={task} />
+          <Task key={task.id} task={task} delay={delay} />
         ))}
       </ol>
     </div>
   );
 }
 
-function Task({ task }: { task: Task }) {
+function Task({ task, delay }: { task: Task; delay: string }) {
   const [editingName, setEditingName] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -248,7 +249,7 @@ function Task({ task }: { task: Task }) {
   const handleDelete = async () => {
     const response = await fetch("/api/delete-task", {
       method: "POST",
-      body: JSON.stringify({ id: task.id }),
+      body: JSON.stringify({ id: task.id, delay: delay }),
       headers: {
         "Content-Type": "application/json",
       },
@@ -262,7 +263,11 @@ function Task({ task }: { task: Task }) {
   const updateTask = async (e: ChangeEvent<HTMLSelectElement>) => {
     const response = await fetch("/api/update-task-state", {
       method: "POST",
-      body: JSON.stringify({ id: task.id, state: e.target.value }),
+      body: JSON.stringify({
+        id: task.id,
+        state: e.target.value,
+        delay: delay,
+      }),
       headers: {
         "Content-Type": "application/json",
       },
@@ -278,7 +283,11 @@ function Task({ task }: { task: Task }) {
       setEditingName(false);
       const response = await fetch("/api/update-task-title", {
         method: "POST",
-        body: JSON.stringify({ id: task.id, title: nameRef.current?.value }),
+        body: JSON.stringify({
+          id: task.id,
+          title: nameRef.current?.value,
+          delay: delay,
+        }),
         headers: {
           "Content-Type": "application/json",
         },
@@ -338,27 +347,65 @@ function AddTaskForm({ delay }: { delay: string }) {
   const queryClient = useQueryClient();
   const session = useSession();
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const addTask = useMutation({
+    mutationFn: async () => {
+      const newName = taskName;
+      setTaskName("");
+      const response = await fetch("/api/add-task", {
+        method: "POST",
+        body: JSON.stringify({
+          title: newName,
+          user: session.username,
+          delay: delay,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      queryClient.invalidateQueries();
+      return response.json();
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({
+        queryKey: ["/api/get-tasks", session.username],
+      });
+      const previousTasks = queryClient.getQueryData<Task[]>([
+        "/api/get-tasks",
+        session.username,
+      ]);
+      if (!previousTasks) return { previousTasks: [] };
+      queryClient.setQueryData<Task[]>(
+        ["/api/get-tasks", session.username],
+        (old) => {
+          if (!old) return [];
+          if (!session.username) return [];
+          const newTask: Task = {
+            id: Date.now(),
+            title: taskName,
+            state: 0,
+            created_at: new Date().toISOString(),
+            username: session.username,
+          };
+          if (old.length === 0) return [newTask];
+          return [...old, newTask];
+        }
+      );
+      return { previousTasks };
+    },
+  });
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!taskName || taskName.length > 32) {
       alert("Task name must be between 1 and 32 characters");
       setTaskName("");
       return;
     }
-    await fetch("/api/add-task", {
-      method: "POST",
-      body: JSON.stringify({
-        title: taskName,
-        user: session.username,
-        delay: delay,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }).then(() => {
-      setTaskName("");
-      queryClient.invalidateQueries();
-    });
+
+    addTask.mutate();
   };
 
   const isUserLogged = session.username && session.username.length <= 32;
