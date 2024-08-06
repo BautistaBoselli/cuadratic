@@ -237,6 +237,7 @@ function TasksContainer({
 }
 
 function Task({ task, delay }: { task: Task; delay: string }) {
+  const session = useSession();
   const [editingName, setEditingName] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -246,46 +247,94 @@ function Task({ task, delay }: { task: Task; delay: string }) {
 
   const queryClient = useQueryClient();
 
+  const deleteTask = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/delete-task", {
+        method: "POST",
+        body: JSON.stringify({ id: task.id, delay: delay }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        alert("Error deleting task");
+      }
+      queryClient.invalidateQueries();
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({
+        queryKey: ["/api/get-tasks", session.username],
+      });
+      const previousTasks = queryClient.getQueryData<Task[]>([
+        "/api/get-tasks",
+        session.username,
+      ]);
+      if (!previousTasks) return { previousTasks: [] };
+      queryClient.setQueryData<Task[]>(
+        ["/api/get-tasks", session.username],
+        (old) => {
+          if (!old) return [];
+          if (!session.username) return [];
+          return old.filter((t) => t.id !== task.id);
+        }
+      );
+    },
+  });
+
   const handleDelete = async () => {
-    const response = await fetch("/api/delete-task", {
-      method: "POST",
-      body: JSON.stringify({ id: task.id, delay: delay }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (!response.ok) {
-      alert("Error deleting task");
-    }
-    queryClient.invalidateQueries();
+    deleteTask.mutate();
   };
+
+  const updateTaskState = useMutation({
+    mutationFn: async (state: number) => {
+      const response = await fetch("/api/update-task-state", {
+        method: "POST",
+        body: JSON.stringify({ id: task.id, state, delay }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        alert("Error updating task");
+      }
+      queryClient.invalidateQueries();
+    },
+    onMutate: async (state: number) => {
+      await queryClient.cancelQueries({
+        queryKey: ["/api/get-tasks", session.username],
+      });
+      const previousTasks = queryClient.getQueryData<Task[]>([
+        "/api/get-tasks",
+        session.username,
+      ]);
+      if (!previousTasks) return { previousTasks: [] };
+      queryClient.setQueryData<Task[]>(
+        ["/api/get-tasks", session.username],
+        (old) => {
+          if (!old) return [];
+          if (!session.username) return [];
+          return old.map((t) => {
+            if (t.id === task.id) {
+              if (state === 0 || state === 1 || state === 2) t.state = state;
+            }
+            return t;
+          });
+        }
+      );
+    },
+  });
 
   const updateTask = async (e: ChangeEvent<HTMLSelectElement>) => {
-    const response = await fetch("/api/update-task-state", {
-      method: "POST",
-      body: JSON.stringify({
-        id: task.id,
-        state: e.target.value,
-        delay: delay,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (!response.ok) {
-      alert("Error updating task");
-    }
-    queryClient.invalidateQueries();
+    updateTaskState.mutate(Number(e.target.value));
   };
 
-  const handleEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      setEditingName(false);
+  const updateTaskTitle = useMutation({
+    mutationFn: async (title: string) => {
       const response = await fetch("/api/update-task-title", {
         method: "POST",
         body: JSON.stringify({
           id: task.id,
-          title: nameRef.current?.value,
+          title: title,
           delay: delay,
         }),
         headers: {
@@ -296,6 +345,44 @@ function Task({ task, delay }: { task: Task; delay: string }) {
         alert("Error updating task");
       }
       queryClient.invalidateQueries();
+    },
+    onMutate: async (title: string) => {
+      await queryClient.cancelQueries({
+        queryKey: ["/api/get-tasks", session.username],
+      });
+      const previousTasks = queryClient.getQueryData<Task[]>([
+        "/api/get-tasks",
+        session.username,
+      ]);
+      if (!previousTasks) return { previousTasks: [] };
+      queryClient.setQueryData<Task[]>(
+        ["/api/get-tasks", session.username],
+        (old) => {
+          if (!old) return [];
+          if (!session.username) return [];
+          return old.map((t) => {
+            if (t.id === task.id) {
+              t.title = title;
+            }
+            return t;
+          });
+        }
+      );
+    },
+  });
+
+  const handleEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      setEditingName(false);
+      const invalidName =
+        !nameRef.current ||
+        !nameRef.current.value ||
+        nameRef.current.value.length > 32;
+      if (invalidName) {
+        alert("Task name must be between 1 and 32 characters");
+        return;
+      }
+      updateTaskTitle.mutate(nameRef.current.value);
     }
   };
 

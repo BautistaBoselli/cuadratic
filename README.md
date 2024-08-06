@@ -81,10 +81,10 @@ Mientras el usuario no esta registrado, no ve ninguna tarea ni puede crearlas
 
 Necesario:
 
-- [ ] Crear el componente donde se especifica el username y almacenar el valor de login
-- [ ] Actualizar la tabla de tareas para que tenga un campo de usuario
-- [ ] Actualizar los endpoints para que las tareas sean por usuario
-- [ ] Hacer que no se pueda crear tareas si no estas logeado
+- [x] Crear el componente donde se especifica el username y almacenar el valor de login
+- [x] Actualizar la tabla de tareas para que tenga un campo de usuario
+- [x] Actualizar los endpoints para que las tareas sean por usuario
+- [x] Hacer que no se pueda crear tareas si no estas logeado
 
 ![](/images/3.png)
 
@@ -94,8 +94,8 @@ Agregar la posibilidad de ordenar las tareas por fecha y por estado
 
 Necesario:
 
-- [ ] Agregar un campo de fecha a las tareas
-- [ ] Agregar un select para ordenar las tareas
+- [x] Agregar un campo de fecha a las tareas
+- [x] Agregar un select para ordenar las tareas
 
 ![](/images/4.png)
 
@@ -106,8 +106,8 @@ vamos a usar optimistic updates con react query
 
 Necesario:
 
-- [ ] Agregar un input donde se pueda poner el delay
-- [ ] Que los endpoints reciban este delay como parametro y lo fingan con un sleep
-- [ ] Agregar optimistic updates a la lista de tareas para mantener la responsiness
+- [x] Agregar un input donde se pueda poner el delay
+- [x] Que los endpoints reciban este delay como parametro y lo fingan con un sleep
+- [x] Agregar optimistic updates a la lista de tareas para mantener la responsiness
 
 ![](/images/5.png)
