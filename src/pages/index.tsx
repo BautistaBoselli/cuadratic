@@ -18,13 +18,13 @@ import { add, addHours, format, formatDistanceToNow, set } from "date-fns";
 import { ca, se, th } from "date-fns/locale";
 import React from "react";
 import { useSession } from "@/components/auth";
-import stringToNumber from "@/utils/string-to-number";
 import sortTasks from "@/utils/sort-tasks";
+import { on } from "events";
 
 export default function Home() {
   const session = useSession();
   const [sortBy, setSortBy] = useState("sort by");
-  const [delay, setDelay] = useState("");
+  const [delay, setDelay] = useState(0);
 
   if (session.status === "pending") {
     return (
@@ -77,7 +77,6 @@ function LoginForm() {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           autoFocus
-          onBlur={() => setInputValue(session.username || "")}
         />
         {!session.isLogged || session.username !== inputValue ? (
           <button
@@ -124,16 +123,15 @@ function DelayInput({
   delay,
   setDelay,
 }: {
-  delay: string;
-  setDelay: (value: string) => void;
+  delay: number;
+  setDelay: (value: number) => void;
 }) {
   const session = useSession();
-  const [inputValue, setInputValue] = useState(delay || "");
+  const [inputValue, setInputValue] = useState(delay || 0);
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const num = stringToNumber(inputValue);
       setDelay(inputValue);
     } catch (error) {
       alert("Invalid delay");
@@ -156,13 +154,12 @@ function DelayInput({
       >
         <label>Delay</label>
         <input
-          type="text"
+          type="number"
           name="delay"
           placeholder="Delay"
           className="p-2 rounded-lg w-full"
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onBlur={() => setInputValue(delay)}
+          onChange={(e) => setInputValue(Number(e.target.value))}
         />
         {delay === inputValue ? null : (
           <button
@@ -182,7 +179,7 @@ function TasksContainer({
   delay,
 }: {
   sortSelection: string;
-  delay: string;
+  delay: number;
 }) {
   const session = useSession();
 
@@ -236,7 +233,7 @@ function TasksContainer({
   );
 }
 
-function Task({ task, delay }: { task: Task; delay: string }) {
+function Task({ task, delay }: { task: Task; delay: number }) {
   const session = useSession();
   const [editingName, setEditingName] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -429,7 +426,7 @@ function Task({ task, delay }: { task: Task; delay: string }) {
   );
 }
 
-function AddTaskForm({ delay }: { delay: string }) {
+function AddTaskForm({ delay }: { delay: number }) {
   const [taskName, setTaskName] = useState("");
   const queryClient = useQueryClient();
   const session = useSession();
@@ -480,7 +477,6 @@ function AddTaskForm({ delay }: { delay: string }) {
           return [...old, newTask];
         }
       );
-      return { previousTasks };
     },
   });
 

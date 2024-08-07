@@ -37,6 +37,12 @@ export function Auth({ children }: { children: ReactNode }) {
       }
       return response.json();
     },
+    retry: (count, error) => {
+      if (error instanceof Error && error.message === "Unauthorized") {
+        return false;
+      }
+      return count < 3;
+    },
   });
   console.log({ data });
 
