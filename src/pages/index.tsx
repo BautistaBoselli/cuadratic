@@ -20,6 +20,7 @@ import React from "react";
 import { useSession } from "@/components/auth";
 import sortTasks from "@/utils/sort-tasks";
 import { on } from "events";
+import { api } from "@/utils/trpc";
 
 export default function Home() {
   const session = useSession();
@@ -183,21 +184,6 @@ function TasksContainer({
 }) {
   const session = useSession();
 
-  const { data, isError, isLoading } = useQuery<Task[]>({
-    queryKey: ["/api/get-tasks", session.username],
-    queryFn: async () => {
-      const response = await fetch(
-        `/api/get-tasks?user=${session.username}&delay=${delay}`
-      );
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      return response.json();
-    },
-    enabled: Boolean(session.username),
-    placeholderData: (prev) => prev,
-  });
-
   if (!session.username || session.username.length > 32) {
     return (
       <div className="min-h-40 max-w-2xl  rounded-lg bg-white p-2">
@@ -205,6 +191,14 @@ function TasksContainer({
       </div>
     );
   }
+
+  const { data, isError, isLoading } = api.getTasks.useQuery(
+    { delay: delay },
+    {
+      enabled: Boolean(session.username),
+      placeholderData: (prev: any) => prev,
+    }
+  );
 
   if (isLoading) {
     return <div>Loading tasks...</div>;
@@ -431,52 +425,36 @@ function AddTaskForm({ delay }: { delay: number }) {
   const queryClient = useQueryClient();
   const session = useSession();
 
-  const addTask = useMutation({
-    mutationFn: async () => {
-      const newName = taskName;
-      setTaskName("");
-      const response = await fetch("/api/add-task", {
-        method: "POST",
-        body: JSON.stringify({
-          title: newName,
-          user: session.username,
-          delay: delay,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-      queryClient.invalidateQueries();
-      return response.json();
-    },
+  const utils = api.useUtils();
+
+  const addTask = api.addTask.useMutation({
     onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: ["/api/get-tasks", session.username],
+      setTaskName("");
+      utils.getTasks.cancel();
+      const previousTasks = utils.getTasks.getData();
+      utils.getTasks.setData({ delay: delay }, (old) => {
+        if (!old) return [];
+        if (!session.username) return [];
+        const newTask: Task = {
+          id: Date.now(),
+          title: taskName,
+          state: 0,
+          created_at: new Date().toISOString(),
+          username: session.username,
+        };
+        if (old.length === 0) return [newTask];
+        return [...old, newTask];
       });
-      const previousTasks = queryClient.getQueryData<Task[]>([
-        "/api/get-tasks",
-        session.username,
-      ]);
-      if (!previousTasks) return { previousTasks: [] };
-      queryClient.setQueryData<Task[]>(
-        ["/api/get-tasks", session.username],
-        (old) => {
-          if (!old) return [];
-          if (!session.username) return [];
-          const newTask: Task = {
-            id: Date.now(),
-            title: taskName,
-            state: 0,
-            created_at: new Date().toISOString(),
-            username: session.username,
-          };
-          if (old.length === 0) return [newTask];
-          return [...old, newTask];
-        }
-      );
+      return { previousTasks };
+    },
+    onSettled: () => {
+      utils.getTasks.invalidate();
+    },
+    onError: (err, input, ctx) => {
+      alert("Error adding task" + err.message);
+      if (!ctx?.previousTasks) return;
+
+      utils.getTasks.setData({ delay: delay }, ctx.previousTasks);
     },
   });
 
@@ -488,7 +466,7 @@ function AddTaskForm({ delay }: { delay: number }) {
       return;
     }
 
-    addTask.mutate();
+    addTask.mutate({ title: taskName, delay });
   };
 
   const isUserLogged = session.username && session.username.length <= 32;
